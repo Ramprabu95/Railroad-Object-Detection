@@ -92,6 +92,7 @@ while True:
 	boxes = []
 	confidences = []
 	classIDs = []
+	angles = []
 
 	# loop over each of the layer outputs
 	for output in layerOutputs:
@@ -102,6 +103,9 @@ while True:
 			scores = detection[5:]
 			classID = np.argmax(scores)
 			confidence = scores[classID]
+			box = detection[0:4] * np.array([W, H, W, H])
+			(centerX, centerY, width, height) = box.astype("int")
+			angle = (W/2 - (centerX - (width / 2))) * 0.02532
 
 			# filter out weak predictions by ensuring the detected
 			# probability is greater than the minimum probability
@@ -124,6 +128,7 @@ while True:
 				boxes.append([x, y, int(width), int(height)])
 				confidences.append(float(confidence))
 				classIDs.append(classID)
+				angles.append(float(angle))
 
 	# apply non-maxima suppression to suppress weak, overlapping
 	# bounding boxes
@@ -141,8 +146,8 @@ while True:
 			# draw a bounding box rectangle and label on the frame
 			color = [int(c) for c in COLORS[classIDs[i]]]
 			cv2.rectangle(frame, (x, y), (x + w, y + h), color, 2)
-			text = "{}: {:.4f}".format(LABELS[classIDs[i]],
-				confidences[i])
+			text = "{}: {:.4f}, angel:{}".format(LABELS[classIDs[i]],
+				confidences[i], angles[i])
 			cv2.putText(frame, text, (x, y - 5),
 				cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 2)
 
