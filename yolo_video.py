@@ -92,7 +92,8 @@ while True:
 	boxes = []
 	confidences = []
 	classIDs = []
-	angles = []
+	angles_left = []
+	angles_right = []
 
 	# loop over each of the layer outputs
 	for output in layerOutputs:
@@ -105,8 +106,8 @@ while True:
 			confidence = scores[classID]
 			box = detection[0:4] * np.array([W, H, W, H])
 			(centerX, centerY, width, height) = box.astype("int")
-			angle = (W/2 - (centerX - (width / 2))) * 0.02532
-
+			angle_left = (W/2 - (centerX - (width / 2))) * 0.02532
+			angle_right = (W/2 - (centerX + (width/2))) * 0.02532
 			# filter out weak predictions by ensuring the detected
 			# probability is greater than the minimum probability
 			if confidence > args["confidence"]:
@@ -128,8 +129,8 @@ while True:
 				boxes.append([x, y, int(width), int(height)])
 				confidences.append(float(confidence))
 				classIDs.append(classID)
-				angles.append(float(angle))
-
+				angles_left.append(round(angle_left,2))
+				angles_right.append(round(angle_right,2))
 	# apply non-maxima suppression to suppress weak, overlapping
 	# bounding boxes
 	idxs = cv2.dnn.NMSBoxes(boxes, confidences, args["confidence"],
@@ -146,8 +147,8 @@ while True:
 			# draw a bounding box rectangle and label on the frame
 			color = [int(c) for c in COLORS[classIDs[i]]]
 			cv2.rectangle(frame, (x, y), (x + w, y + h), color, 2)
-			text = "{}: {:.4f}, angel:{}".format(LABELS[classIDs[i]],
-				confidences[i], angles[i])
+			text = "{}: {:.4f}, angle-l:{}, angle-r:{}".format(LABELS[classIDs[i]],
+				confidences[i], angles_left[i], angles_right[i])
 			cv2.putText(frame, text, (x, y - 5),
 				cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 2)
 
