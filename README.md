@@ -9,7 +9,9 @@ $ python yolo.py --image "IMAGE PATH" --yolo yolo-coco
 ```
 $ python yolo_video.py --input "VIDEO PATH" --output "OUTPUT PATH" --yolo yolo-coco
 ```
-Read my article on yolo: https://medium.com/@sigilwen/object-detection-with-yolo-bringing-vision-to-self-driving-cars-980295226830
-#### Watch my Video Demo of YOLO(VSauce Parody):https://www.youtube.com/watch?v=AxhBu2uK86I 
+### For real time videos, use:
+```
+$ python yolo_video.py --input "camera" --output "OUTPUT PATH" --yolo yolo-coco
+```
 
 Code adopted from PyImageSearch 
