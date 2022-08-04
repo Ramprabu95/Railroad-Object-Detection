@@ -8,7 +8,11 @@ import imutils
 import time
 import cv2
 import os
-
+import torch
+from imutils.video import WebcamVideoStream,FPS
+import threading, queue
+import signal
+import readchar
 # construct the argument parse and parse the arguments
 ap = argparse.ArgumentParser()
 ap.add_argument("-i", "--input", required=True,
@@ -40,42 +44,68 @@ configPath = os.path.sep.join([args["yolo"], "yolov3.cfg"])
 # and determine only the *output* layer names that we need from YOLO
 print("[INFO] loading YOLO from disk...")
 net = cv2.dnn.readNetFromDarknet(configPath, weightsPath)
+#Utilizing GPU for the network
+net.setPreferableBackend(cv2.dnn.DNN_BACKEND_CUDA)
+net.setPreferableTarget(cv2.dnn.DNN_TARGET_CUDA)
 ln = net.getLayerNames()
 ln = [ln[i - 1] for i in net.getUnconnectedOutLayers()]
 
 # initialize the video stream, pointer to output video file, and
 # frame dimensions
-vs = cv2.VideoCapture(args["input"])
+if args['input'] == 'camera':
+	print('Accessing Camera')
+	cap = WebcamVideoStream(src = 0).start()
+	q = queue.Queue()
+	width = 1280
+	height = 720
+	W = width
+	H = height
+	def frame_render(queue_from_cam):
+            frame = cap.read() # If you capture stream using opencv (cv2.VideoCapture()) the use the following line
+            # ret, frame = self.cap.read()
+            frame = cv2.resize(frame,(1280, 720))
+			#
+            queue_from_cam.put(frame)
 writer = None
-(W, H) = (None, None)
+def handler(signum,frame):
+	print('Ctrl-C is pressed: stopping the code')
+	print("[INFO] cleaning up...")
+	writer.release()
+	exit(1)
+signal.signal(signal.SIGINT,handler)
+
+
+
 
 # try to determine the total number of frames in the video file
-try:
-	prop = cv2.cv.CV_CAP_PROP_FRAME_COUNT if imutils.is_cv2() \
-		else cv2.CAP_PROP_FRAME_COUNT
-	total = int(vs.get(prop))
-	print("[INFO] {} total frames in video".format(total))
+#try:
+#	prop = cv2.cv.CV_CAP_PROP_FRAME_COUNT if imutils.is_cv2() \
+#		else cv2.CAP_PROP_FRAME_COUNT
+#	total = int(vs.get(prop))
+#	print("[INFO] {} total frames in video".format(total))
 
 # an error occurred while trying to determine the total
 # number of frames in the video file
-except:
-	print("[INFO] could not determine # of frames in video")
-	print("[INFO] no approx. completion time can be provided")
-	total = -1
+#except:
+#	print("[INFO] could not determine # of frames in video")
+#	print("[INFO] no approx. completion time can be provided")
+#	total = -1
 
 # loop over frames from the video file stream
 while True:
 	# read the next frame from the file
-	(grabbed, frame) = vs.read()
-
-	# if the frame was not grabbed, then we have reached the end
-	# of the stream
-	if not grabbed:
-		break
+	cam = threading.Thread(target=frame_render, args=(q,))
+	cam.start()
+	cam.join()
+	frame = q.get()
+	q.task_done()
+	fps = FPS().start()
+	
+	
 
 	# if the frame dimensions are empty, grab them
-	if W is None or H is None:
-		(H, W) = frame.shape[:2]
+	#if W is None or H is None:
+	#	(H, W) = frame.shape[:2]
 
 	# construct a blob from the input frame and then perform a forward
 	# pass of the YOLO object detector, giving us our bounding boxes
@@ -151,25 +181,28 @@ while True:
 				confidences[i], angles_left[i], angles_right[i])
 			cv2.putText(frame, text, (x, y - 5),
 				cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 2)
-
+	#cv2.imshow('inital',frame)
 	# check if the video writer is None
 	if writer is None:
+		print('intial write')
 		# initialize our video writer
 		fourcc = cv2.VideoWriter_fourcc(*"MJPG")
 		writer = cv2.VideoWriter(args["output"], fourcc, 30,
-			(frame.shape[1], frame.shape[0]), True)
+		(frame.shape[1], frame.shape[0]), True)
 
 		# some information on processing single frame
-		if total > 0:
-			elap = (end - start)
-			print("[INFO] single frame took {:.4f} seconds".format(elap))
-			print("[INFO] estimated total time to finish: {:.4f}".format(
-				elap * total))
-
-	# write the output frame to disk
+		#if total > 0:
+			#elap = (end - start)
+			#print("[INFO] single frame took {:.4f} seconds".format(elap))
+			#print("[INFO] estimated total time to finish: {:.4f}".format(
+			#	elap * total))
 	writer.write(frame)
+	cv2.imshow('realtime',frame)
+	cv2.waitKey(1)
+	# write the output frame to disk
+	
 
 # release the file pointers
-print("[INFO] cleaning up...")
-writer.release()
-vs.release()
+	
+	fps.update()
+	fps.stop()
